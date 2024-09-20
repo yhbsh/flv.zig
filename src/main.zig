@@ -1,22 +1,24 @@
 const std = @import("std");
-const flv = @import("flv.zig");
+const GenericFLV = @import("flv.zig").FLV;
 
 pub fn main() void {
     var args = std.process.args();
 
     const program = args.next();
-
     const file_path = args.next();
     if (file_path == null) {
         std.debug.print("[USAGE]: {s} <file>\n", .{program.?});
         std.process.exit(1);
     }
 
-    var ctx = flv.init(file_path.?);
-    defer ctx.deinit();
+    const file = std.fs.cwd().openFile(file_path.?, .{}) catch std.process.exit(1);
+    defer file.close();
+
+    const FLV = GenericFLV(std.fs.File.Reader);
+    var flv = FLV.init(file.reader());
 
     var packet_count: usize = 0;
-    while (ctx.next()) |packet| {
+    while (flv.next()) |packet| {
         packet_count += 1;
         std.debug.print("Packet {d:^6}: {}\n", .{ packet_count, packet });
     }
