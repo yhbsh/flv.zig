@@ -50,7 +50,7 @@ pub fn FLV(comptime ReaderType: type) type {
             }
         };
 
-        pub fn init(reader: std.fs.File.Reader) Self {
+        pub fn init(reader: ReaderType) Self {
             var flv = Self{ .reader = reader, .buffer = undefined };
 
             var buffer: [9]u8 = undefined;
