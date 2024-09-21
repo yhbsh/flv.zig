@@ -4,24 +4,31 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
+    const flv_lib = b.addStaticLibrary(.{
         .name = "flv",
         .root_source_file = b.path("src/flv.zig"),
         .target = target,
         .optimize = optimize,
-        .strip = true,
-        .pic = true,
     });
 
-    b.installArtifact(lib);
-
-    const lib_unit_tests = b.addTest(.{
+    const flv_module = b.addModule("flv", .{
         .root_source_file = b.path("src/flv.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
+    b.installArtifact(flv_lib);
+
+    const flv_test = b.addTest(.{
+        .root_source_file = b.path("src/flv_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    flv_test.root_module.addImport("flv", flv_module);
+
+    const run_flv_test = b.addRunArtifact(flv_test);
+
+    const test_step = b.step("test", "Run flv unit tests");
+    test_step.dependOn(&run_flv_test.step);
 }
