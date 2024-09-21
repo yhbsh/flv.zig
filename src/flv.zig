@@ -1,6 +1,13 @@
 const std = @import("std");
 
-pub fn FLV(comptime ReaderType: type) type {
+const FLVError = error{
+    Read,
+    InvalidSignature,
+    InvalidPacket,
+    EOF,
+};
+
+pub fn GenericFLV(comptime ReaderType: type) type {
     return struct {
         const Self = @This();
 
@@ -50,19 +57,17 @@ pub fn FLV(comptime ReaderType: type) type {
             }
         };
 
-        pub fn init(reader: ReaderType) Self {
+        pub fn init(reader: ReaderType) FLVError!Self {
             var flv = Self{ .reader = reader, .buffer = undefined };
 
             var buffer: [9]u8 = undefined;
 
-            const read = flv.reader.read(&buffer) catch |err| {
-                std.debug.print("[ERROR]: cannot read header: {}\n", .{err});
-                std.process.exit(1);
+            const read = flv.reader.read(&buffer) catch {
+                return FLVError.Read;
             };
 
             if (read != 9) {
-                std.debug.print("[ERROR]: invalid read size\n", .{});
-                std.process.exit(1);
+                return FLVError.Read;
             }
 
             const header = Header{
@@ -73,8 +78,7 @@ pub fn FLV(comptime ReaderType: type) type {
             };
 
             if (!std.mem.eql(u8, &header.signature, "FLV")) {
-                std.debug.print("[ERROR]: invalid flv file\n", .{});
-                std.process.exit(1);
+                return FLVError.InvalidSignature;
             }
 
             std.debug.print("FLV Header: {}\n\n", .{header});
@@ -82,12 +86,11 @@ pub fn FLV(comptime ReaderType: type) type {
             return flv;
         }
 
-        pub fn next(self: *Self) ?Packet {
-            const read = self.reader.read(&self.buffer) catch |err| {
-                std.debug.print("[ERROR]: cannot read packet header: {}\n", .{err});
-                std.process.exit(1);
+        pub fn next(self: *Self) FLVError!?Packet {
+            const read = self.reader.read(&self.buffer) catch {
+                return FLVError.Read;
             };
-            if (read == 0) return null;
+            if (read == 0) return FLVError.EOF;
 
             const timestamp_lower = std.mem.readInt(u24, self.buffer[8..11], .big);
             const timestamp_upper = self.buffer[11];
@@ -103,10 +106,10 @@ pub fn FLV(comptime ReaderType: type) type {
 
             self.reader.skipBytes(packet.payload_size, .{}) catch |err| {
                 if (err == error.EndOfStream) {
-                    return null;
+                    return FLVError.EOF;
                 }
-                std.debug.print("[ERROR]: cannot skip payload: {}\n", .{err});
-                std.process.exit(1);
+
+                return FLVError.Read;
             };
             return packet;
         }
